@@ -1,44 +1,65 @@
-# TIS Document Ripper
+# tis-rip
 
-This script allows you to rip electrical wiring diagrams, collision/body repair manuals, and repair manuals from
-Toyota's TIS.
+Downloads Toyota repair manuals, collision repair manuals, and electrical wiring diagrams from [Toyota TIS (techinfo.toyota.com)](https://techinfo.toyota.com) and saves them as PDFs organized by section.
 
-## Setup
+## Prerequisites
 
-This script requires that you download ChromeDriver from http://chromedriver.chromium.org/downloads and place the
-executable in this directory. You will also need to initialize a new Chrome user profile at ./user-data and configure
-some settings manually:
-
-```
-chrome --user-data-dir=./user-data
-```
-
-You should set the Download directory to ./download, and disable the built-in PDF viewer.
-
-You will also need to install the pip dependencies:
+Python 3 and the following packages:
 
 ```
 pip install -r requirements.txt
 ```
 
+Google Chrome must be installed at `/Applications/Google Chrome.app` (macOS default).
+
 ## Usage
 
 ```
-./rip.py EM12345 RM12345 BM12345 BM98765 RM01935 EM37590
+./rip.py [--output <dir>] <doc_id> [<doc_id> ...]
 ```
 
-All manuals will be downloaded to their own directories.
+### Arguments
 
-## Finding document IDs
+| Argument | Description |
+|---|---|
+| `--output <dir>` | Directory to write PDFs into (default: current directory) |
+| `EM…` | Electrical wiring diagram ID |
+| `RM…` | Repair manual ID |
+| `BM…` | Collision repair manual ID |
 
-The easiest way to find the document IDs is to search for your vehicle in TIS and look at the URLs for the documents.
-EWDs start with "EM", body repair manuals start with "BM", and repair manuals start with "RM".
+### Example
 
-## Output
+```
+./rip.py RM3560U BM3560U --output "/Users/you/Documents/GR Corolla Service Manual"
+```
 
-RM and BM will both have indexes generated for them, and PDFs will be generated for HTML pages. All images are embedded
-in the pages so there are no external dependencies for a single page. All inter-page links are corrected so that they
-continue to work in the HTML versions of the pages, but be aware that links in PDFs can behave inconsistently at times.
+The script will open Chrome, navigate to TIS, and pause for you to log in. Press Enter when ready.
 
-Electrical diagrams are downloaded for the `system`, `overall`, and `routing` categories, as they are the most useful
-(and they come in convenient PDF form).
+## Output structure
+
+```
+<output>/
+  <doc_id>/
+    <Section>/
+      <Section>_ <Subsection>_ <Page Title>_ <vehicle info>.pdf
+```
+
+For example:
+```
+GR Corolla Service Manual/
+  BM3560U/
+    General/
+      General_ INTRODUCTION_ HOW TO USE THIS MANUAL_ GENERAL INFORMATION_ ....pdf
+  RM3560U/
+    Engine/
+      Engine_ ..._ ....pdf
+```
+
+Intermediate HTML files are cached in `./<doc_id>/html/` so re-runs skip already-downloaded pages.
+
+## Notes
+
+- A `user-data` Chrome profile is saved locally so the browser remembers your TIS login session between runs.
+- The `download/` folder is a temporary staging area for browser downloads and is cleared on each run.
+- The cert warning (`Error parsing certificate`) printed during headless PDF rendering is harmless.
+- Document IDs (e.g. `RM3560U`, `BM3560U`) can be found in the TIS URL when browsing a manual.
