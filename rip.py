@@ -142,11 +142,31 @@ def build_toc_index(base):
         fh.write(body)
         fh.write("</body></html>")
 
-def download_manual(driver, t, id):
+def build_href_breadcrumb(root):
+    """Returns dict mapping href -> list of section names from root to leaf."""
+    result = {}
+    def traverse(item, ancestors):
+        name_els = item.findall("name")
+        name = name_els[0].text.strip() if name_els and name_els[0].text else ""
+        path = ancestors + [name]
+        href = item.attrib.get("href", "")
+        if href:
+            result[href] = path
+        for child in item.findall("item"):
+            traverse(child, path)
+    for item in root.findall("item"):
+        traverse(item, [])
+    return result
+
+def breadcrumb_pdf_path(breadcrumb, output_dir):
+    """Convert TOC breadcrumb list to an output PDF path."""
+    folder = breadcrumb[0].replace(" ", "_") if breadcrumb else "General"
+    filename = "_ ".join(mkfilename(p) for p in breadcrumb) + ".pdf"
+    return os.path.join(output_dir, folder, filename)
+
+def download_manual(driver, t, id, output_dir):
     if not os.path.exists(os.path.join(id, "html")):
         os.makedirs(os.path.join(id, "html"))
-    if not os.path.exists(os.path.join(id, "pdf")):
-        os.makedirs(os.path.join(id, "pdf"))
     toc_path = os.path.join(id, "toc.xml")
     if not os.path.exists(toc_path):
         print("Downloading the TOC for", id)
@@ -158,6 +178,7 @@ def download_manual(driver, t, id):
 
     tree = ET.parse(toc_path)
     root = tree.getroot()
+    breadcrumb_map = build_href_breadcrumb(root)
     n = 0
     c = 0
 
@@ -172,54 +193,42 @@ def download_manual(driver, t, id):
         href = i.attrib['href']
         url = "https://techinfo.toyota.com" + href
         n += 1
-        
+
+        breadcrumb = breadcrumb_map.get(href, [])
+        pdf_p = breadcrumb_pdf_path(breadcrumb, os.path.join(output_dir, id)) if breadcrumb else os.path.join(output_dir, id, os.path.basename(href)[:-5] + ".pdf")
+
         print("Downloading", href, " (", n, "/", c, ")...")
         # all are html files, load them all up one at a time and then save them
         f_parts = href.split('/')
         f_p = os.path.join(id, "html", f_parts[len(f_parts)-1])
-        pdf_p = os.path.join(id, "pdf", f_parts[len(f_parts)-1][:-5] + ".pdf")
 
         if os.path.exists(f_p) and not os.path.exists(pdf_p):
-            # make the pdf
+            os.makedirs(os.path.dirname(pdf_p), exist_ok=True)
             make_pdf(f_p, pdf_p)
+
 
         if os.path.exists(f_p) or os.path.exists(pdf_p):
             continue
         driver.get(url)
+        page_source = driver.page_source
 
-        if "location='/t3Portal" in driver.page_source:
+        if "location='/t3Portal" in page_source:
             print("\tPDF redirect found!")
-            
-            while True:
-                time.sleep(0.2)
-                incomplete = False
-                for f in os.listdir("download"):
-                    if f.endswith(".crdownload"):
-                        incomplete = True
-                        break
-                if not incomplete:
-                    break
-                else:
-                    print("Waiting for incomplete download!")
-                    time.sleep(0.2)
-
-            # list out all downloads in folder and try to match them!
-            dest_file = None
-            while len(os.listdir("download")) < 1:
-                time.sleep(0.2)
-
-            for f in os.listdir("download"):
-                print(f)
-                if f in driver.page_source:
-                    dest_file = f
-                    break
-            
-            if dest_file is None:
-                print("\tCould not find matching download!")
-                input("wait")
+            import re
+            import requests
+            m = re.search(r"location='(/t3Portal[^']+)'", page_source)
+            if m is None:
+                print("\tCould not extract redirect URL, skipping")
                 continue
-            
-            shutil.move(os.path.join("download", dest_file), pdf_p)
+            pdf_url = "https://techinfo.toyota.com" + m.group(1)
+            import base64
+            driver.get(pdf_url)
+            time.sleep(2)
+            pdf_data = driver.execute_cdp_cmd("Page.printToPDF", {"printBackground": True})
+            os.makedirs(os.path.dirname(pdf_p), exist_ok=True)
+            with open(pdf_p, 'wb') as fh:
+                fh.write(base64.b64decode(pdf_data['data']))
+
             print("\tDone")
         else:
             print("\tInjecting scripts...")
@@ -247,19 +256,26 @@ def download_manual(driver, t, id):
 
 def make_pdf(src, dest):
     print("Creating PDF from", src, "to", dest)
-    subprocess.run(["/usr/bin/chromium", "--print-to-pdf=" + dest, "--no-gpu", "--headless", "file://" + os.path.abspath(src)])
+    subprocess.run(["/Applications/Google Chrome.app/Contents/MacOS/Google Chrome", "--print-to-pdf=" + dest, "--no-gpu", "--headless", "file://" + os.path.abspath(src)])
 
 
 if __name__ == "__main__":
     if len(sys.argv) < 2:
         print("You must pass the documents you wish to download as arguments to this script!")
         sys.exit(1)
-    
+
+    output_dir = "."
     EWDS = []
     REPAIR_MANUALS = []
     COLLISION_MANUALS = []
 
-    for arg in sys.argv[1:]:
+    args = sys.argv[1:]
+    if "--output" in args:
+        idx = args.index("--output")
+        output_dir = args[idx + 1]
+        args = args[:idx] + args[idx + 2:]
+
+    for arg in args:
         if arg.startswith('EM'):
             EWDS.append(arg)
         elif arg.startswith('RM'):
@@ -272,11 +288,22 @@ if __name__ == "__main__":
     
     chrome_options = webdriver.ChromeOptions()
     chrome_options.add_argument("user-data-dir=./user-data")
+    chrome_options.add_experimental_option("prefs", {
+        "download.default_directory": os.path.abspath("download"),
+        "download.prompt_for_download": False,
+        "plugins.always_open_pdf_externally": True,
+    })
 
     shutil.rmtree("download", True)
     os.makedirs("download")
 
-    driver = webdriver.Chrome("./chromedriver", options=chrome_options)
+    from selenium.webdriver.chrome.service import Service
+    from webdriver_manager.chrome import ChromeDriverManager
+    driver = webdriver.Chrome(service=Service(ChromeDriverManager().install()), options=chrome_options)
+    driver.execute_cdp_cmd("Page.setDownloadBehavior", {
+        "behavior": "allow",
+        "downloadPath": os.path.abspath("download"),
+    })
 
     driver.get("https://techinfo.toyota.com")
     input("Please login and press enter to continue...")
@@ -289,11 +316,11 @@ if __name__ == "__main__":
     # download all collision manuals
     print("Downloading collision repair manuals...")
     for cr in COLLISION_MANUALS:
-        download_manual(driver, "cr", cr)
+        download_manual(driver, "cr", cr, output_dir)
 
     # download all repair manuals
     print("Downloading repair manuals...")
     for rm in REPAIR_MANUALS:
-        download_manual(driver, "rm", rm)
+        download_manual(driver, "rm", rm, output_dir)
 
     driver.close()
