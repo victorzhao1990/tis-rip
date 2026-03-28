@@ -161,7 +161,10 @@ def build_href_breadcrumb(root):
 def breadcrumb_pdf_path(breadcrumb, output_dir):
     """Convert TOC breadcrumb list to an output PDF path."""
     folder = breadcrumb[0].replace(" ", "_") if breadcrumb else "General"
-    filename = "_ ".join(mkfilename(p) for p in breadcrumb) + ".pdf"
+    stem = "_ ".join(mkfilename(p) for p in breadcrumb)
+    if len(stem.encode()) > 240:
+        stem = stem.encode()[:240].decode(errors="ignore").rstrip()
+    filename = stem + ".pdf"
     return os.path.join(output_dir, folder, filename)
 
 def download_manual(driver, t, id, output_dir):
