@@ -688,9 +688,7 @@ def pdf_output_path(output_root, breadcrumb, href):
 
 def html_output_path(output_root, breadcrumb, href):
     html_root = os.path.join(output_root, "html")
-    if not breadcrumb:
-        return flat_artifact_path(html_root, href, "html")
-    return breadcrumb_artifact_path(breadcrumb, html_root, "html")
+    return flat_artifact_path(html_root, href, "html")
 
 
 def sync_output_html(cache_html, output_html):

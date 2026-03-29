@@ -72,9 +72,7 @@ Recovery examples:
   <doc_id>/
     <filter selection>/
       html/
-        <Section>/
-          <Subsection>/
-            <Page Title>.html
+        <TIS Page Id>.html
       pdf/
         <Section>/
           <Subsection>/
@@ -87,10 +85,7 @@ GR Corolla Service Manual/
   RM3560U/
     models_GR Corolla__engines_G16E_GTS__years_2025/
       html/
-        General/
-          INTRODUCTION/
-            IDENTIFICATION INFORMATION/
-              VEHICLE IDENTIFICATION AND SERIAL NUMBERS_ 2024 _ 2025 MY GR Corolla Corolla Corolla Hatchback Corolla HV _08_2023 _ 09_2024_.html
+        RM100000002QJU4.html
       pdf/
         General/
           INTRODUCTION/
