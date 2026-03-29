@@ -895,7 +895,37 @@ def parse_args(argv):
 
 def make_pdf(src, dest):
     print("Creating PDF from", src, "to", dest)
-    subprocess.run(["/Applications/Google Chrome.app/Contents/MacOS/Google Chrome", "--print-to-pdf=" + dest, "--no-gpu", "--headless", "file://" + os.path.abspath(src)])
+    result = subprocess.run(
+        [
+            "/Applications/Google Chrome.app/Contents/MacOS/Google Chrome",
+            "--print-to-pdf=" + dest,
+            "--no-gpu",
+            "--headless",
+            "file://" + os.path.abspath(src),
+        ],
+        capture_output=True,
+        text=True,
+    )
+
+    benign_patterns = [
+        "Error parsing certificate:",
+        "ERROR: Failed parsing extensions",
+        "CVDisplayLinkCreateWithCGDisplay failed",
+        "task_policy_set TASK_CATEGORY_POLICY",
+        "task_policy_set TASK_SUPPRESSION_POLICY",
+    ]
+
+    stderr_lines = []
+    for line in result.stderr.splitlines():
+        if any(pattern in line for pattern in benign_patterns):
+            continue
+        stderr_lines.append(line)
+
+    if stderr_lines:
+        print("\n".join(stderr_lines))
+
+    if result.returncode != 0:
+        raise RuntimeError("Chrome PDF generation failed for " + dest)
 
 
 if __name__ == "__main__":
