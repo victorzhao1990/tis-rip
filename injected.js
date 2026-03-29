@@ -1,37 +1,48 @@
-while ($ === undefined) {}
+function fetchTextSync(url) {
+    var xhr = new XMLHttpRequest();
+    xhr.open("GET", url, false);
+    xhr.send(null);
+    if (xhr.status >= 200 && xhr.status < 300) {
+        return xhr.responseText;
+    }
+    return null;
+}
 
-$(".footer").remove();
+var footer = document.querySelector(".footer");
+if (footer) {
+    footer.remove();
+}
 
-$("link[rel=stylesheet]").each(function(e) {
-    var ss = $(this);
-    var href = ss[0].href;
-    $.ajax({
-        url: href,
-        async: false,
-        success: function(result) {
-            $("style").remove();
-
-            var selem = $("<style type=\"text/css\">" + result + "</style>");
-            $("head").append(selem);
-        },
-    });
-    ss.remove();
+document.querySelectorAll('link[rel="stylesheet"]').forEach(function(link) {
+    var cssText = fetchTextSync(link.href);
+    if (cssText) {
+        var style = document.createElement("style");
+        style.type = "text/css";
+        style.textContent = cssText;
+        document.head.appendChild(style);
+    }
+    link.remove();
 });
 
-$("img").each(function(i, img) {
-    if (img.currentSrc.indexOf("data:") !== 0) {
-        var c = document.createElement("canvas");
-        var ctx = c.getContext("2d");
-        c.width = img.naturalWidth;
-        c.height = img.naturalHeight;
+document.querySelectorAll("img").forEach(function(img) {
+    if (!img.currentSrc || img.currentSrc.indexOf("data:") === 0) {
+        return;
+    }
+
+    try {
+        var canvas = document.createElement("canvas");
+        var ctx = canvas.getContext("2d");
+        canvas.width = img.naturalWidth;
+        canvas.height = img.naturalHeight;
         ctx.drawImage(img, 0, 0);
-        var dataURL = c.toDataURL();
-        img.src = dataURL;
-    } else {
-        console.log("already data uri");
+        img.src = canvas.toDataURL();
+    } catch (err) {
+        console.log("Could not inline image", img.currentSrc, err);
     }
 });
 
-$("script").remove();
+document.querySelectorAll("script").forEach(function(script) {
+    script.remove();
+});
 
 return document.documentElement.outerHTML;

@@ -823,11 +823,6 @@ def download_manual(driver, t, doc_id, output_dir, cache_root, filter_selection=
             print("\tDone")
         else:
             print("\tInjecting scripts...")
-            # we want to inject jQuery now
-            driver.execute_script("""var s=window.document.createElement('script');\
-            s.src='https://cdnjs.cloudflare.com/ajax/libs/jquery/3.4.1/jquery.min.js';\
-            window.document.head.appendChild(s);""")
-
             inject_and_save_html(driver, f_p)
             sync_output_html(f_p, output_html_p)
             os.makedirs(os.path.dirname(pdf_p), exist_ok=True)
