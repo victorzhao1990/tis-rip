@@ -166,7 +166,13 @@ def fetch_pdf_via_print(driver, pdf_url, pdf_path):
     driver.get(pdf_url)
     assert_not_login_page(driver, "rendering PDF " + pdf_url)
     time.sleep(2)
-    pdf_data = driver.execute_cdp_cmd("Page.printToPDF", {"printBackground": True})
+    pdf_data = driver.execute_cdp_cmd(
+        "Page.printToPDF",
+        {
+            "printBackground": True,
+            "displayHeaderFooter": False,
+        },
+    )
     os.makedirs(os.path.dirname(pdf_path), exist_ok=True)
     with open(pdf_path, 'wb') as fh:
         fh.write(base64.b64decode(pdf_data['data']))
@@ -897,6 +903,7 @@ def make_pdf(src, dest):
         [
             "/Applications/Google Chrome.app/Contents/MacOS/Google Chrome",
             "--print-to-pdf=" + dest,
+            "--no-pdf-header-footer",
             "--no-gpu",
             "--headless",
             "file://" + os.path.abspath(src),
