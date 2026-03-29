@@ -145,8 +145,39 @@ def assert_not_login_page(driver, context):
         raise RuntimeError("Toyota TIS login is required while " + context)
 
 
+def page_has_http_error(driver):
+    current_url = driver.current_url.lower()
+    if current_url.startswith("chrome-error://"):
+        return "browser error page"
+
+    title = (driver.title or "").strip().lower()
+    body_text = (driver.execute_script("return document.body ? document.body.innerText : '';") or "").strip().lower()
+
+    patterns = [
+        "403 forbidden",
+        "404 not found",
+        "http error 403",
+        "http error 404",
+        "error 403",
+        "error 404",
+    ]
+
+    for pattern in patterns:
+        if pattern in title or pattern in body_text:
+            return pattern
+
+    return None
+
+
+def assert_not_http_error_page(driver, context):
+    error_hint = page_has_http_error(driver)
+    if error_hint:
+        raise RuntimeError("Received " + error_hint + " while " + context)
+
+
 def fetch_xml_document(driver, url):
     driver.get(url)
+    assert_not_http_error_page(driver, "fetching XML from " + url)
     xml_src = get_xml_viewer_source(driver)
     if not xml_src or not xml_src.strip():
         raise RuntimeError("Received empty XML from " + url)
@@ -156,6 +187,7 @@ def fetch_xml_document(driver, url):
 def load_manual_page(driver, url):
     driver.get(url)
     assert_not_login_page(driver, "loading " + url)
+    assert_not_http_error_page(driver, "loading " + url)
     page_source = driver.page_source
     if not page_source or not page_source.strip():
         raise RuntimeError("Received empty page from " + url)
@@ -165,6 +197,7 @@ def load_manual_page(driver, url):
 def fetch_pdf_via_print(driver, pdf_url, pdf_path):
     driver.get(pdf_url)
     assert_not_login_page(driver, "rendering PDF " + pdf_url)
+    assert_not_http_error_page(driver, "rendering PDF " + pdf_url)
     time.sleep(2)
     pdf_data = driver.execute_cdp_cmd(
         "Page.printToPDF",
