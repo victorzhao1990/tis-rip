@@ -2,3 +2,10 @@ download
 user-data
 chromedriver
 chromedriver.exe
+.DS_Store
+__pycache__/
+cache/
+output/
+EM*/
+RM*/
+BM*/
