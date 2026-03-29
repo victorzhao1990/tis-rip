@@ -10,7 +10,7 @@ Python 3 and the following packages:
 pip install -r requirements.txt
 ```
 
-Google Chrome must be installed at `/Applications/Google Chrome.app` (macOS default).
+Google Chrome must be installed. The script also requires ChromeDriver — see [Known limitations](#known-limitations) below.
 
 ## Usage
 
@@ -56,6 +56,28 @@ GR Corolla Service Manual/
 ```
 
 Intermediate HTML files are cached in `./<doc_id>/html/` so re-runs skip already-downloaded pages.
+
+## Known limitations
+
+### Chrome path is hardcoded (macOS only)
+
+The script assumes Chrome is installed at:
+```
+/Applications/Google Chrome.app/Contents/MacOS/Google Chrome
+```
+This is used for headless PDF rendering. If Chrome is installed elsewhere (e.g. on Linux or Windows), edit the path in `make_pdf()` near the bottom of `rip.py`:
+```python
+def make_pdf(src, dest):
+    subprocess.run(["/Applications/Google Chrome.app/Contents/MacOS/Google Chrome", ...])
+```
+
+### ChromeDriver version must match Chrome
+
+`webdriver-manager` automatically downloads the matching ChromeDriver at runtime. If you see a `SessionNotCreatedException` mentioning a version mismatch, it means the auto-downloaded driver doesn't match your installed Chrome version. Try updating Chrome to the latest version and re-running.
+
+### TIS subscription required
+
+You must have an active Toyota TIS subscription. The script pauses at login so you can authenticate in the browser window it opens.
 
 ## Notes
 
