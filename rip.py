@@ -465,7 +465,7 @@ def format_selection(selection):
     return "; ".join(parts)
 
 
-def resolve_filter_selection(cache_root, doc_id, root, override_selection=None, force_prompt=False):
+def resolve_filter_selection(cache_root, doc_id, root, override_selection=None, force_prompt=False, has_override=False):
     override_selection = override_selection or {}
     normalized_override = {
         "models": override_selection.get("models", []) or [],
@@ -473,7 +473,7 @@ def resolve_filter_selection(cache_root, doc_id, root, override_selection=None, 
         "years": [str(y) for y in (override_selection.get("years", []) or [])],
     }
 
-    if any(normalized_override.values()):
+    if has_override or any(normalized_override.values()):
         save_selection(cache_root, doc_id, normalized_override)
         return normalized_override
 
@@ -719,11 +719,11 @@ def load_manual_toc(cache_root, doc_id):
     return toc_path, root
 
 
-def render_manual_from_cache(doc_id, output_dir, cache_root, filter_selection=None, force_prompt=False):
+def render_manual_from_cache(doc_id, output_dir, cache_root, filter_selection=None, force_prompt=False, has_override=False):
     _, root = load_manual_toc(cache_root, doc_id)
     breadcrumb_map = build_href_breadcrumb(root)
     rendered = 0
-    selection = resolve_filter_selection(cache_root, doc_id, root, filter_selection, force_prompt)
+    selection = resolve_filter_selection(cache_root, doc_id, root, filter_selection, force_prompt, has_override)
     output_root = output_selection_dir(output_dir, doc_id, selection)
     os.makedirs(output_root, exist_ok=True)
     normalized_filters = normalize_filter_spec(selection)
@@ -752,16 +752,16 @@ def render_manual_from_cache(doc_id, output_dir, cache_root, filter_selection=No
     print("Rendered", rendered, "PDFs from cache for", doc_id)
 
 
-def reindex_manual(doc_id, output_dir, cache_root, filter_selection=None, force_prompt=False):
+def reindex_manual(doc_id, output_dir, cache_root, filter_selection=None, force_prompt=False, has_override=False):
     _, root = load_manual_toc(cache_root, doc_id)
-    selection = resolve_filter_selection(cache_root, doc_id, root, filter_selection, force_prompt)
+    selection = resolve_filter_selection(cache_root, doc_id, root, filter_selection, force_prompt, has_override)
     output_root = output_selection_dir(output_dir, doc_id, selection)
     os.makedirs(output_root, exist_ok=True)
     build_toc_index(cache_root, output_root, doc_id, selection)
     print("Rebuilt index for", doc_id)
 
 
-def download_manual(driver, t, doc_id, output_dir, cache_root, filter_selection=None, force_prompt=False):
+def download_manual(driver, t, doc_id, output_dir, cache_root, filter_selection=None, force_prompt=False, has_override=False):
     html_dir = cache_html_dir(cache_root, doc_id)
     os.makedirs(html_dir, exist_ok=True)
 
@@ -774,7 +774,7 @@ def download_manual(driver, t, doc_id, output_dir, cache_root, filter_selection=
             fh.write(xml_src)
 
     _, root = load_manual_toc(cache_root, doc_id)
-    selection = resolve_filter_selection(cache_root, doc_id, root, filter_selection, force_prompt)
+    selection = resolve_filter_selection(cache_root, doc_id, root, filter_selection, force_prompt, has_override)
     output_root = output_selection_dir(output_dir, doc_id, selection)
     os.makedirs(output_root, exist_ok=True)
     breadcrumb_map = build_href_breadcrumb(root)
@@ -929,14 +929,16 @@ if __name__ == "__main__":
         "engines": args.engine,
         "years": args.year,
     }
+    has_filter_override = any(filter_selection.values())
 
     if args.all_filters:
         filter_selection = {"models": [], "engines": [], "years": []}
         args.choose_filters = False
+        has_filter_override = True
 
     if args.reindex:
         for doc_id in COLLISION_MANUALS + REPAIR_MANUALS:
-            reindex_manual(doc_id, output_dir, cache_root, filter_selection, args.choose_filters)
+            reindex_manual(doc_id, output_dir, cache_root, filter_selection, args.choose_filters, has_filter_override)
         if EWDS:
             print("Reindex mode does not apply to electrical wiring diagrams.")
         if EWDS and any(filter_selection.values()):
@@ -945,7 +947,7 @@ if __name__ == "__main__":
 
     if args.render_from_cache:
         for doc_id in COLLISION_MANUALS + REPAIR_MANUALS:
-            render_manual_from_cache(doc_id, output_dir, cache_root, filter_selection, args.choose_filters)
+            render_manual_from_cache(doc_id, output_dir, cache_root, filter_selection, args.choose_filters, has_filter_override)
         if EWDS:
             print("Render-from-cache mode does not apply to electrical wiring diagrams.")
         if EWDS and any(filter_selection.values()):
@@ -984,12 +986,12 @@ if __name__ == "__main__":
         # download all collision manuals
         print("Downloading collision repair manuals...")
         for cr in COLLISION_MANUALS:
-            download_manual(driver, "cr", cr, output_dir, cache_root, filter_selection, args.choose_filters)
+            download_manual(driver, "cr", cr, output_dir, cache_root, filter_selection, args.choose_filters, has_filter_override)
 
         # download all repair manuals
         print("Downloading repair manuals...")
         for rm in REPAIR_MANUALS:
-            download_manual(driver, "rm", rm, output_dir, cache_root, filter_selection, args.choose_filters)
+            download_manual(driver, "rm", rm, output_dir, cache_root, filter_selection, args.choose_filters, has_filter_override)
         if EWDS and any(filter_selection.values()):
             print("Model, engine, and year filters do not apply to electrical wiring diagrams.")
     finally:
