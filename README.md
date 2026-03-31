@@ -49,6 +49,8 @@ Filter to a specific model directly:
 
 The script will open Chrome, navigate to TIS, and pause for you to log in. Press Enter when ready.
 
+If Toyota expires the session mid-run, the script now retries once automatically. If TIS still shows the login page, it will pause again so you can reauthenticate in the same Chrome window and continue.
+
 If you do not pass filters directly, the script will read the TOC metadata, show the available models, engines, and years, and ask you to choose one, some, or all. It also suggests when each filter is likely useful. That selection is saved per document and reused on later runs so resume picks up the same choice automatically.
 
 If you want to skip prompts entirely and fetch everything, use:

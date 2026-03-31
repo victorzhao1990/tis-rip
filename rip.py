@@ -130,11 +130,20 @@ def page_requires_login(driver):
         return True
 
     password_fields = driver.find_elements(By.CSS_SELECTOR, "input[type='password']")
-    if password_fields:
+    page_text = driver.page_source.lower()
+    login_markers = [
+        "please login",
+        "please log in",
+        "session expired",
+        "user id",
+        "forgot password",
+        "remember me",
+    ]
+
+    if password_fields and any(marker in page_text for marker in login_markers):
         return True
 
-    page_text = driver.page_source.lower()
-    if "please login" in page_text or "sign in" in page_text:
+    if any(marker in page_text for marker in login_markers):
         return True
 
     return False
@@ -143,6 +152,16 @@ def page_requires_login(driver):
 def assert_not_login_page(driver, context):
     if page_requires_login(driver):
         raise RuntimeError("Toyota TIS login is required while " + context)
+
+
+def ensure_tis_session(driver, context):
+    driver.get("https://techinfo.toyota.com")
+    time.sleep(2)
+    if page_requires_login(driver):
+        input("Toyota TIS session expired while " + context + ". Please log in again in Chrome and press Enter to retry...")
+        driver.get("https://techinfo.toyota.com")
+        time.sleep(2)
+    assert_not_login_page(driver, context)
 
 
 def page_has_http_error(driver):
@@ -176,39 +195,62 @@ def assert_not_http_error_page(driver, context):
 
 
 def fetch_xml_document(driver, url):
-    driver.get(url)
-    assert_not_http_error_page(driver, "fetching XML from " + url)
-    xml_src = get_xml_viewer_source(driver)
-    if not xml_src or not xml_src.strip():
-        raise RuntimeError("Received empty XML from " + url)
-    return xml_src
+    for attempt in range(2):
+        driver.get(url)
+        if page_requires_login(driver):
+            if attempt == 0:
+                print("TIS requested login while fetching XML; refreshing session and retrying once...")
+                ensure_tis_session(driver, "fetching XML from " + url)
+                continue
+            raise RuntimeError("Toyota TIS login is required while fetching XML from " + url)
+        assert_not_http_error_page(driver, "fetching XML from " + url)
+        xml_src = get_xml_viewer_source(driver)
+        if not xml_src or not xml_src.strip():
+            raise RuntimeError("Received empty XML from " + url)
+        return xml_src
+    raise RuntimeError("Failed to fetch XML from " + url)
 
 
 def load_manual_page(driver, url):
-    driver.get(url)
-    assert_not_login_page(driver, "loading " + url)
-    assert_not_http_error_page(driver, "loading " + url)
-    page_source = driver.page_source
-    if not page_source or not page_source.strip():
-        raise RuntimeError("Received empty page from " + url)
-    return page_source
+    for attempt in range(2):
+        driver.get(url)
+        if page_requires_login(driver):
+            if attempt == 0:
+                print("TIS requested login while loading a manual page; refreshing session and retrying once...")
+                ensure_tis_session(driver, "loading " + url)
+                continue
+            raise RuntimeError("Toyota TIS login is required while loading " + url)
+        assert_not_http_error_page(driver, "loading " + url)
+        page_source = driver.page_source
+        if not page_source or not page_source.strip():
+            raise RuntimeError("Received empty page from " + url)
+        return page_source
+    raise RuntimeError("Failed to load page from " + url)
 
 
 def fetch_pdf_via_print(driver, pdf_url, pdf_path):
-    driver.get(pdf_url)
-    assert_not_login_page(driver, "rendering PDF " + pdf_url)
-    assert_not_http_error_page(driver, "rendering PDF " + pdf_url)
-    time.sleep(2)
-    pdf_data = driver.execute_cdp_cmd(
-        "Page.printToPDF",
-        {
-            "printBackground": True,
-            "displayHeaderFooter": False,
-        },
-    )
-    os.makedirs(os.path.dirname(pdf_path), exist_ok=True)
-    with open(pdf_path, 'wb') as fh:
-        fh.write(base64.b64decode(pdf_data['data']))
+    for attempt in range(2):
+        driver.get(pdf_url)
+        if page_requires_login(driver):
+            if attempt == 0:
+                print("TIS requested login while rendering a PDF; refreshing session and retrying once...")
+                ensure_tis_session(driver, "rendering PDF " + pdf_url)
+                continue
+            raise RuntimeError("Toyota TIS login is required while rendering PDF " + pdf_url)
+        assert_not_http_error_page(driver, "rendering PDF " + pdf_url)
+        time.sleep(2)
+        pdf_data = driver.execute_cdp_cmd(
+            "Page.printToPDF",
+            {
+                "printBackground": True,
+                "displayHeaderFooter": False,
+            },
+        )
+        os.makedirs(os.path.dirname(pdf_path), exist_ok=True)
+        with open(pdf_path, 'wb') as fh:
+            fh.write(base64.b64decode(pdf_data['data']))
+        return
+    raise RuntimeError("Failed to render PDF " + pdf_url)
 
 
 def inject_and_save_html(driver, dest_path):
