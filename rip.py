@@ -124,40 +124,86 @@ def get_xml_viewer_source(driver, timeout=10):
     raise TimeoutException("Timed out waiting for XML viewer source")
 
 
-def page_requires_login(driver):
-    current_url = driver.current_url.lower()
-    if "login" in current_url or "signin" in current_url:
-        return True
+def login_page_reason(driver):
+    current_url = driver.current_url or ""
+    current_url_lower = current_url.lower()
+    title = (driver.title or "").strip()
+    title_lower = title.lower()
 
-    password_fields = driver.find_elements(By.CSS_SELECTOR, "input[type='password']")
-    page_text = driver.page_source.lower()
-    login_markers = [
+    url_markers = [
+        "/login",
+        "login?",
+        "/signin",
+        "signin?",
+        "authentication",
+        "oauth",
+    ]
+    if any(marker in current_url_lower for marker in url_markers):
+        return "login-like URL: " + current_url
+
+    visible_password_fields = driver.execute_script(
+        """
+        const isVisible = (el) => {
+            if (!el) return false;
+            const style = window.getComputedStyle(el);
+            if (style.display === 'none' || style.visibility === 'hidden') return false;
+            const rect = el.getBoundingClientRect();
+            return rect.width > 0 && rect.height > 0;
+        };
+        return Array.from(document.querySelectorAll("input[type='password']")).filter(isVisible).length;
+        """
+    )
+    if visible_password_fields:
+        return "visible password field(s)"
+
+    text_markers = [
         "please login",
         "please log in",
         "session expired",
-        "user id",
-        "forgot password",
-        "remember me",
+        "sign in to continue",
+        "enter your password",
     ]
+    body_text = (
+        driver.execute_script("return document.body ? document.body.innerText : '';") or ""
+    ).strip().lower()
+    if any(marker in title_lower for marker in text_markers):
+        return "login-like title: " + title
+    if any(marker in body_text for marker in text_markers):
+        return "login-like body text"
 
-    if password_fields and any(marker in page_text for marker in login_markers):
-        return True
+    return None
 
-    if any(marker in page_text for marker in login_markers):
-        return True
 
-    return False
+def page_requires_login(driver):
+    return login_page_reason(driver) is not None
+
+
+def log_login_detection(driver, context, reason):
+    print(
+        "Detected Toyota login requirement while",
+        context,
+        "| reason:",
+        reason,
+        "| url:",
+        driver.current_url,
+        "| title:",
+        repr(driver.title or ""),
+    )
 
 
 def assert_not_login_page(driver, context):
-    if page_requires_login(driver):
+    reason = login_page_reason(driver)
+    if reason:
+        log_login_detection(driver, context, reason)
         raise RuntimeError("Toyota TIS login is required while " + context)
 
 
 def ensure_tis_session(driver, context):
     driver.get("https://techinfo.toyota.com")
     time.sleep(2)
-    if page_requires_login(driver):
+    reason = login_page_reason(driver)
+    if reason:
+        log_login_detection(driver, "refreshing session for " + context, reason)
         input("Toyota TIS session expired while " + context + ". Please log in again in Chrome and press Enter to continue...")
         driver.get("https://techinfo.toyota.com")
         time.sleep(2)
@@ -202,7 +248,9 @@ def assert_not_http_error_page(driver, context):
 def fetch_xml_document(driver, url):
     for attempt in range(3):
         driver.get(url)
-        if page_requires_login(driver):
+        reason = login_page_reason(driver)
+        if reason:
+            log_login_detection(driver, "fetching XML from " + url, reason)
             if attempt == 0:
                 print("TIS requested login while fetching XML; refreshing session and retrying once...")
                 ensure_tis_session(driver, "fetching XML from " + url)
@@ -223,7 +271,9 @@ def fetch_xml_document(driver, url):
 def load_manual_page(driver, url):
     for attempt in range(3):
         driver.get(url)
-        if page_requires_login(driver):
+        reason = login_page_reason(driver)
+        if reason:
+            log_login_detection(driver, "loading " + url, reason)
             if attempt == 0:
                 print("TIS requested login while loading a manual page; refreshing session and retrying once...")
                 ensure_tis_session(driver, "loading " + url)
@@ -244,7 +294,9 @@ def load_manual_page(driver, url):
 def fetch_pdf_via_print(driver, pdf_url, pdf_path):
     for attempt in range(3):
         driver.get(pdf_url)
-        if page_requires_login(driver):
+        reason = login_page_reason(driver)
+        if reason:
+            log_login_detection(driver, "rendering PDF " + pdf_url, reason)
             if attempt == 0:
                 print("TIS requested login while rendering a PDF; refreshing session and retrying once...")
                 ensure_tis_session(driver, "rendering PDF " + pdf_url)
