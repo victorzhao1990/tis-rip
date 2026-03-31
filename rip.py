@@ -158,10 +158,15 @@ def ensure_tis_session(driver, context):
     driver.get("https://techinfo.toyota.com")
     time.sleep(2)
     if page_requires_login(driver):
-        input("Toyota TIS session expired while " + context + ". Please log in again in Chrome and press Enter to retry...")
+        input("Toyota TIS session expired while " + context + ". Please log in again in Chrome and press Enter to continue...")
         driver.get("https://techinfo.toyota.com")
         time.sleep(2)
     assert_not_login_page(driver, context)
+
+
+def prompt_for_tis_login(driver, context):
+    input("Toyota TIS login is required while " + context + ". Please log in again in Chrome and press Enter to retry...")
+    ensure_tis_session(driver, context)
 
 
 def page_has_http_error(driver):
@@ -195,12 +200,16 @@ def assert_not_http_error_page(driver, context):
 
 
 def fetch_xml_document(driver, url):
-    for attempt in range(2):
+    for attempt in range(3):
         driver.get(url)
         if page_requires_login(driver):
             if attempt == 0:
                 print("TIS requested login while fetching XML; refreshing session and retrying once...")
                 ensure_tis_session(driver, "fetching XML from " + url)
+                continue
+            if attempt == 1:
+                print("TIS still requires login while fetching XML; waiting for manual re-login...")
+                prompt_for_tis_login(driver, "fetching XML from " + url)
                 continue
             raise RuntimeError("Toyota TIS login is required while fetching XML from " + url)
         assert_not_http_error_page(driver, "fetching XML from " + url)
@@ -212,12 +221,16 @@ def fetch_xml_document(driver, url):
 
 
 def load_manual_page(driver, url):
-    for attempt in range(2):
+    for attempt in range(3):
         driver.get(url)
         if page_requires_login(driver):
             if attempt == 0:
                 print("TIS requested login while loading a manual page; refreshing session and retrying once...")
                 ensure_tis_session(driver, "loading " + url)
+                continue
+            if attempt == 1:
+                print("TIS still requires login while loading a manual page; waiting for manual re-login...")
+                prompt_for_tis_login(driver, "loading " + url)
                 continue
             raise RuntimeError("Toyota TIS login is required while loading " + url)
         assert_not_http_error_page(driver, "loading " + url)
@@ -229,12 +242,16 @@ def load_manual_page(driver, url):
 
 
 def fetch_pdf_via_print(driver, pdf_url, pdf_path):
-    for attempt in range(2):
+    for attempt in range(3):
         driver.get(pdf_url)
         if page_requires_login(driver):
             if attempt == 0:
                 print("TIS requested login while rendering a PDF; refreshing session and retrying once...")
                 ensure_tis_session(driver, "rendering PDF " + pdf_url)
+                continue
+            if attempt == 1:
+                print("TIS still requires login while rendering a PDF; waiting for manual re-login...")
+                prompt_for_tis_login(driver, "rendering PDF " + pdf_url)
                 continue
             raise RuntimeError("Toyota TIS login is required while rendering PDF " + pdf_url)
         assert_not_http_error_page(driver, "rendering PDF " + pdf_url)
