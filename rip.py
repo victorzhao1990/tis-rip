@@ -1129,7 +1129,7 @@ if __name__ == "__main__":
         sys.exit(0)
     
     chrome_options = webdriver.ChromeOptions()
-    chrome_options.add_argument("user-data-dir=./user-data")
+    chrome_options.add_argument("user-data-dir=" + os.path.abspath("./user-data"))
     chrome_options.add_experimental_option("prefs", {
         "download.default_directory": os.path.abspath(download_dir),
         "download.prompt_for_download": False,
