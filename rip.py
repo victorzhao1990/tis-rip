@@ -1047,7 +1047,7 @@ def make_pdf(src, dest):
     result = subprocess.run(
         [
             "/Applications/Google Chrome.app/Contents/MacOS/Google Chrome",
-            "--print-to-pdf=" + dest,
+            "--print-to-pdf=" + os.path.abspath(dest),
             "--no-pdf-header-footer",
             "--no-gpu",
             "--headless",
