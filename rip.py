@@ -918,6 +918,7 @@ def download_manual(driver, t, doc_id, output_dir, cache_root, filter_selection=
         print("Downloading the TOC for", doc_id)
         url = "https://techinfo.toyota.com/t3Portal/external/en/" + t + "/" + doc_id + "/toc.xml"
         xml_src = fetch_xml_document(driver, url)
+        xml_src = xml_src.replace('\xa0', ' ')
         with open(toc_path, 'w') as fh:
             fh.write(xml_src)
 
