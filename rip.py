@@ -89,7 +89,7 @@ def output_ewd_system_dir(output_root, doc_id, system_name):
 
 def fix_links(fn):
     modified = False
-    doc = open(fn, 'r').read()
+    doc = open(fn, 'r', encoding='utf-8').read()
     soup = BeautifulSoup(doc, 'lxml')
     for link in soup.find_all("a"):
         href = link.get('href')
@@ -109,7 +109,7 @@ def fix_links(fn):
     
     if modified:
         print("Writing ", fn)
-        with open(fn, 'w') as fh:
+        with open(fn, 'w', encoding='utf-8') as fh:
             fh.write(soup.prettify())
 
 
@@ -333,7 +333,7 @@ def inject_and_save_html(driver, dest_path):
     if not src or not src.strip():
         raise RuntimeError("Injected HTML was empty for " + dest_path)
 
-    with open(dest_path, 'w') as fh:
+    with open(dest_path, 'w', encoding='utf-8') as fh:
         fh.write(src)
 
     fix_links(dest_path)
