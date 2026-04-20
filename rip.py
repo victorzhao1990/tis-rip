@@ -89,7 +89,7 @@ def output_ewd_system_dir(output_root, doc_id, system_name):
 
 def fix_links(fn):
     modified = False
-    doc = open(fn, 'r').read()
+    doc = open(fn, 'r', encoding='utf-8').read()
     soup = BeautifulSoup(doc, 'lxml')
     for link in soup.find_all("a"):
         href = link.get('href')
@@ -109,7 +109,7 @@ def fix_links(fn):
     
     if modified:
         print("Writing ", fn)
-        with open(fn, 'w') as fh:
+        with open(fn, 'w', encoding='utf-8') as fh:
             fh.write(soup.prettify())
 
 
@@ -333,7 +333,7 @@ def inject_and_save_html(driver, dest_path):
     if not src or not src.strip():
         raise RuntimeError("Injected HTML was empty for " + dest_path)
 
-    with open(dest_path, 'w') as fh:
+    with open(dest_path, 'w', encoding='utf-8') as fh:
         fh.write(src)
 
     fix_links(dest_path)
@@ -918,6 +918,7 @@ def download_manual(driver, t, doc_id, output_dir, cache_root, filter_selection=
         print("Downloading the TOC for", doc_id)
         url = "https://techinfo.toyota.com/t3Portal/external/en/" + t + "/" + doc_id + "/toc.xml"
         xml_src = fetch_xml_document(driver, url)
+        xml_src = xml_src.replace('\xa0', ' ')
         with open(toc_path, 'w') as fh:
             fh.write(xml_src)
 
@@ -1046,7 +1047,7 @@ def make_pdf(src, dest):
     result = subprocess.run(
         [
             "/Applications/Google Chrome.app/Contents/MacOS/Google Chrome",
-            "--print-to-pdf=" + dest,
+            "--print-to-pdf=" + os.path.abspath(dest),
             "--no-pdf-header-footer",
             "--no-gpu",
             "--headless",
@@ -1129,7 +1130,7 @@ if __name__ == "__main__":
         sys.exit(0)
     
     chrome_options = webdriver.ChromeOptions()
-    chrome_options.add_argument("user-data-dir=./user-data")
+    chrome_options.add_argument("user-data-dir=" + os.path.abspath("./user-data"))
     chrome_options.add_experimental_option("prefs", {
         "download.default_directory": os.path.abspath(download_dir),
         "download.prompt_for_download": False,

@@ -99,17 +99,27 @@ Intermediate HTML files, `toc.xml`, and temporary downloads are cached under the
 
 ## Known limitations
 
-### Chrome path is hardcoded (macOS only)
+### Chrome path is hardcoded
 
 The script assumes Chrome is installed at:
 ```
 /Applications/Google Chrome.app/Contents/MacOS/Google Chrome
 ```
-This is used for headless PDF rendering. If Chrome is installed elsewhere (e.g. on Linux or Windows), edit the path in `make_pdf()` near the bottom of `rip.py`:
+This is used for headless PDF rendering, and should work as is for macOS. If Chrome is installed elsewhere (e.g. on Linux or Windows), edit the path in `make_pdf()` near the bottom of `rip.py`.
+
+macOS example:
 ```python
 def make_pdf(src, dest):
     subprocess.run(["/Applications/Google Chrome.app/Contents/MacOS/Google Chrome", ...])
 ```
+
+Windows example:
+```python
+def make_pdf(src, dest):
+    subprocess.run([r"C:\Program Files\Google\Chrome\Application\chrome.exe", ...])
+```
+
+Since the backslash is an escape character in Python, for Windows paths you can either use the `r` raw string prefix and enter the path exactly as displayed in Windows (as in the example above), or use forward slashes as Python will accept this on Windows. 
 
 ### ChromeDriver version must match Chrome
 
